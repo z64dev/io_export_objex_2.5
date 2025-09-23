@@ -21,6 +21,7 @@ from . import interface
 from . import node_setup_helpers
 from .logging_util import getLogger
 from . import template
+from bpy.props import StringProperty
 
 def hexify(segment: str):
     if not segment:
@@ -1064,6 +1065,11 @@ def register_properties():
     bpy.types.Armature.objex_bonus = bpy.props.PointerProperty(type=ObjexArmatureProperties)
     bpy.types.Material.objex_bonus = bpy.props.PointerProperty(type=ObjexMaterialProperties)
     bpy.types.Image.objex_bonus = bpy.props.PointerProperty(type=ObjexImageProperties)
+    bpy.types.Scene.objex_last_export_path = StringProperty(
+    name="Export Path",
+    description="Path used to automatically export the .objex, it autofills",
+    default=""
+    )
 
 def unregister_properties():
     del bpy.types.Scene.objex_bonus
@@ -1071,8 +1077,10 @@ def unregister_properties():
     del bpy.types.Armature.objex_bonus
     del bpy.types.Material.objex_bonus
     del bpy.types.Image.objex_bonus
+    del bpy.types.Scene.objex_last_export_path
     for clazz in reversed(classes):
         try:
             bpy.utils.unregister_class(clazz)
         except:
             log.exception('Failed to unregister {!r}', clazz)
+

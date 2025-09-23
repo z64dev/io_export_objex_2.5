@@ -34,7 +34,7 @@ Added a draw function to export operator
 bl_info = {
     'name': 'Objex Exporter for N64 romhacking',
     'author': 'Campbell Barton, Bastien Montagne, OoT modding community',
-    'version': (2, 6, 2),
+    'version': (2, 6, 3),
     'blender': (2, 80, 0),
     'location': 'File > Export',
     'description': 'Allows to export to objex and provides new features for further customization',
@@ -100,6 +100,7 @@ class OBJEX_OT_export_base():
 
     bl_idname = 'objex.export'
     bl_label = 'Export OBJEX'
+    bl_description = "Exports as Objex2 (.objex)"
     bl_options = {'PRESET'}
 
     filename_ext = '.objex'
@@ -107,6 +108,8 @@ class OBJEX_OT_export_base():
             default='*.objex',
             options={'HIDDEN'},
             )
+
+    skip_dialog: bpy.props.BoolProperty(default=False, options={"HIDDEN"})
 
     # context group
     use_selection = BoolProperty(
@@ -452,7 +455,12 @@ class OBJEX_OT_export_base():
                                 if bpy.app.version < (2, 80, 0) else '',
                             display_device_ok)
 
-            return export_objex.save(context, **keywords)
+            result = export_objex.save(context, **keywords)
+            # Save the chosen filepath
+            context.scene.objex_last_export_path = bpy.path.relpath(self.filepath)
+
+            return result
+
         except util.ObjexExportAbort as abort:
             log.error('Export abort: {}', abort.reason)
             return {'CANCELLED'}
@@ -463,6 +471,16 @@ class OBJEX_OT_export_base():
             progress_report.print = print
             logging_util.resetLoggingSettings()
 
+    def invoke(self, context, event):
+        # If textbox already filled -> bypass file browser
+        if self.skip_dialog and context.scene.objex_last_export_path:
+            self.filepath = bpy.path.abspath(context.scene.objex_last_export_path)
+            result = self.execute(context)
+            self.report({'INFO'}, f"Exported to {self.filepath}")
+            return result
+        else:
+            # No path stored yet -> open file browser as usual
+            return ExportHelper.invoke(self, context, event)
 axis_forward = '-Z'
 axis_up='Y'
 
@@ -472,7 +490,7 @@ class OBJEX_OT_export(bpy.types.Operator, OBJEX_OT_export_base, ExportHelper):
     pass
 
 def menu_func_export(self, context):
-    self.layout.operator(OBJEX_OT_export.bl_idname, text='Objex2 (.objex)')
+    self.layout.operator(OBJEX_OT_export.bl_idname, text='Objex2 (.objex)').skip_dialog = False
 
 class OBJEX_AddonPreferences(bpy.types.AddonPreferences, logging_util.AddonLoggingPreferences, addon_updater_ops.AddonUpdaterPreferences):
     bl_idname = __package__

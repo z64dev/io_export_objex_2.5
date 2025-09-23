@@ -781,7 +781,8 @@ def save(context,
          use_collection=None,
          include_armatures_from_selection=True,
          global_matrix=None,
-         path_mode=None
+         path_mode=None,
+         skip_dialog = False
          ):
 
     objex_writer = ObjexWriter(context)
