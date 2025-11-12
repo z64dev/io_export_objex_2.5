@@ -29,6 +29,8 @@ from .logging_util import getLogger
 from . import util
 from . import rigging_helpers
 from pathlib import Path
+import tempfile
+import numpy as np
 
 """
 useful reference for UI
@@ -283,7 +285,9 @@ class OBJEX_OT_MassInit(bpy.types.Operator):
                         obj.data.attributes.remove(obj.data.attributes['Alpha'])
                 if "_collision" in obj.name:
                     obj.data.objex_bonus.type = "COLLISION"
-                    obj.name = 'collision.' + obj.name
+                    obj.name = 'collision.' + obj.name.replace('_collision','')
+                if "_mesh" in obj.name:
+                    obj.name = obj.name.replace('_mesh','')
                 if obj.type == 'ARMATURE':
                     arm = obj.data
                     for bone in arm.bones:
@@ -1620,7 +1624,6 @@ class OBJEX_OT_material_build_nodes(bpy.types.Operator):
 
         material_name = material.name.replace("mtl_", "")
         for img in bpy.data.images:
-            #log.debug("AAAAAAAAAAAAAAAAAAA {}", img.name.replace(".tga", ""))
             if material_name in img.name.replace(".tga", ""):
                 texel0texture = nodes["OBJEX_Texel0Texture"]
                 texel0texture.image = img  
@@ -1637,7 +1640,11 @@ class OBJEX_OT_material_build_nodes(bpy.types.Operator):
                     mat.node_tree.nodes["OBJEX_TransformUV0"].inputs[2].default_value = -mat.f3d_mat.tex0.T.shift
                     name = mat.node_tree.nodes["OBJEX_Texel0Texture"].image.name
                     bpy.data.images[name].objex_bonus.format = mat.f3d_mat.tex0.tex_format;
-                    
+                    if 'flipbookGroup' in mat and mat.flipbookGroup.flipbook0.enable:
+                        bpy.data.images[name].objex_bonus.texture_bank = flipbook_to_image(mat.flipbookGroup.flipbook0.textures)
+                else:
+                    mat.node_tree.nodes["OBJEX_Texel0Texture"].image = None
+
                 if uses_tex1 and mat.f3d_mat.tex1.tex_set:
                     mat.node_tree.nodes["OBJEX_Texel1Texture"].image = mat.f3d_mat.tex1.tex
                     mat.node_tree.nodes["OBJEX_Texel1Texture"].interpolation = "Linear"
@@ -1648,6 +1655,8 @@ class OBJEX_OT_material_build_nodes(bpy.types.Operator):
                     if mat.node_tree.nodes["OBJEX_Texel1Texture"].image:
                         name = mat.node_tree.nodes["OBJEX_Texel1Texture"].image.name
                         bpy.data.images[name].objex_bonus.format = mat.f3d_mat.tex1.tex_format
+                else:
+                    mat.node_tree.nodes["OBJEX_Texel1Texture"].image = None
 
                 mat.node_tree.nodes["OBJEX_PrimColor"].inputs[0].default_value = (mat.f3d_mat.prim_color[0],mat.f3d_mat.prim_color[1],mat.f3d_mat.prim_color[2],mat.f3d_mat.prim_color[3])
                 mat.node_tree.nodes["OBJEX_PrimColor"].inputs[1].default_value = mat.f3d_mat.prim_color[3]
@@ -2287,11 +2296,11 @@ def menu_draw_folding(layout:bpy.types.UILayout, armature:bpy.types.Armature, co
     row.alignment = 'CENTER'
     row = box.row()
     row.operator('objex.autofold_save_pose', text='Save pose')
-    row.operator('objex.autofold_restore_pose', text='Restore pose')
+    #row.operator('objex.autofold_restore_pose', text='Restore pose')
     row = box.row()
-    row.operator('objex.autofold_fold_unfold', text='Fold').action = 'FOLD'
-    row.operator('objex.autofold_fold_unfold', text='Unfold').action = 'UNFOLD'
-    row.operator('objex.autofold_fold_unfold', text='Switch').action = 'SWITCH'
+    #row.operator('objex.autofold_fold_unfold', text='Fold').action = 'FOLD'
+    #row.operator('objex.autofold_fold_unfold', text='Unfold').action = 'UNFOLD'
+    row.operator('objex.autofold_fold_unfold', text='Fold/Unfold').action = 'SWITCH'
     box.label(text='Default saved pose to use for folding:')
     box.template_list('UI_UL_list', 'OBJEX_SavedPose', scene.objex_bonus, 'saved_poses', armature.data.objex_bonus, 'fold_unfold_saved_pose_index', rows=2)
     box.operator('objex.autofold_delete_pose', text='Delete pose')
@@ -2408,6 +2417,72 @@ def unregister_interface():
         except:
             log.exception("Failed to unregister {!r}", clazz)
 
+
+def flipbook_to_image(flipbookimages, new_image_name="flipbook0.png"):
+    """
+    Concatenates existing Blender images vertically (top to bottom)
+    and returns the new image reference.
+    
+    Args:
+        image_names (list[str]): Names of existing Blender images.
+        new_image_name (str): Name for the new combined image.
+        
+    Returns:
+        bpy.types.Image: The new concatenated image.
+    """
+
+    images = []
+    for flipbookimg in flipbookimages:
+        images.append(flipbookimg.image)
+
+    # Ensure all images have same width and 4 channels (RGBA)
+    widths = [img.size[0] for img in images]
+    heights = [img.size[1] for img in images]
+    width = widths[0]
+    if len(set(widths)) != 1:
+        raise ValueError("All images must have the same width to concatenate vertically.")
+
+    # Convert image pixels to numpy arrays
+    arrays = []
+    for img in images:
+        # Ensure pixels are loaded
+        img.pixels[:]
+        arr = np.array(img.pixels[:], dtype=np.float32)
+        arr = arr.reshape((img.size[1], img.size[0], 4))
+        arrays.append(arr)
+
+    # Stack images vertically (index 0 on top)
+    concatenated = np.vstack(list(reversed(arrays)))
+
+    total_height = sum(heights)
+    
+    # Create the new image
+    new_img = bpy.data.images.new(
+        name=new_image_name,
+        width=width,
+        height=total_height,
+        alpha=True,
+        float_buffer=True
+    )
+
+    pixels = concatenated.flatten()
+    new_img.pixels = pixels  # ensure Blender buffer is updated
+    new_img.update()
+
+    # Blender needs a valid file path before packing
+    tmp_path = os.path.join(tempfile.gettempdir(), new_image_name)
+    new_img.filepath_raw = tmp_path
+    new_img.file_format = 'PNG'
+    new_img.save()
+    new_img.pack()
+    # Clear the file path to keep it as packed data only
+    new_img.filepath_raw = ""
+    new_img.source = 'FILE'
+
+
+    return new_img
+
+
 #the following is required for fast64 import
 
 hex_sound_type = {
@@ -2427,6 +2502,7 @@ hex_sound_type = {
     "0x0D": "SOUND_DIRT_2",
     "0x0E": "SOUND_DIRT_3",
     "0x0F": "SOUND_DIRT_4",
+    "Custom": "SOUND_DIRT",
 }
 
 hex_floor_flags = {
@@ -2442,6 +2518,7 @@ hex_floor_flags = {
     "0x0A": "UNSET", #value not in objex
     "0x0B": "FLOOR_JUMP_DIVE",
     "0x0C": "FLOOR_VOID_ROOM",
+    "Custom": "UNSET",
 }
 
 hex_wall_flags = {
@@ -2460,6 +2537,7 @@ hex_wall_flags = {
     "0x0D": "UNSET", #value not in objex
     "0x0E": "UNSET", #value not in objex
     "0x0F": "UNSET", #value not in objex
+    "Custom": "UNSET",
 }
 
 hex_special_flags = {
@@ -2475,6 +2553,7 @@ hex_special_flags = {
     "0x0A": "SPECIAL_LOOKUP",
     "0x0B": "FLOOR_QUICKHORSE",
     "0x0C": "UNSET", #value not in objex
+    "Custom": "UNSET",
 }
 
 hex_conveyor_speed = {

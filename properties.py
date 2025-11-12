@@ -691,7 +691,7 @@ class ObjexMaterialProperties(bpy.types.PropertyGroup):
             default=True
         )
     frontface_culling = bpy.props.BoolProperty(
-            name='Cull frontfaces',
+            name='Frontface Culling',
             description='Culls the front face of geometry',
             default=False
         )
@@ -708,28 +708,28 @@ class ObjexMaterialProperties(bpy.types.PropertyGroup):
         )
 
     rendermode_blender_flag_AA_EN = bpy.props.BoolProperty(
-            name='AA_EN',
-            description='AA_EN\n' 'Enable anti-aliasing?',
+            name='Antialiasing',
+            description='AA_EN\n' 'Enable anti-aliasing',
             default=True
         )
     rendermode_blender_flag_Z_CMP = bpy.props.BoolProperty(
-            name='Z_CMP',
+            name='Z Testing',
             description='Z_CMP\n' 'Use Z buffer',
             default=True
         )
     rendermode_blender_flag_Z_UPD = bpy.props.BoolProperty(
-            name='Z_UPD',
+            name='Z Writing',
             description='Z_UPD\n' 'Update Z buffer',
             default=True
         )
     rendermode_blender_flag_IM_RD = bpy.props.BoolProperty(
             name='IM_RD',
-            description='IM_RD\n' '? see CloudModding wiki',
+            description='IM_RD\n' 'Enables reading from framebuffer for blending calculations',
             default=True
         )
     rendermode_blender_flag_CLR_ON_CVG = bpy.props.BoolProperty(
-            name='CLR_ON_CVG',
-            description='CLR_ON_CVG\n' '? see CloudModding wiki',
+            name='Color on Coverage',
+            description='CLR_ON_CVG\n' 'Only draw on coverage (amount primitive covers target pixel) overflows',
             default=False
         )
     rendermode_blender_flag_CVG_DST_ = bpy.props.EnumProperty(
@@ -739,8 +739,8 @@ class ObjexMaterialProperties(bpy.types.PropertyGroup):
                 ('CVG_DST_FULL','FULL','CVG_DST_FULL',3),
                 ('CVG_DST_SAVE','SAVE','CVG_DST_SAVE',4),
             ],
-            name='CVG_DST_',
-            description='? see CloudModding wiki',
+            name='Coverage Destination',
+            description='Changes how coverage (amount primitive covers target pixel) gets retrived/stored',
             default='CVG_DST_CLAMP'
         )
     rendermode_zmode = bpy.props.EnumProperty(
@@ -751,35 +751,35 @@ class ObjexMaterialProperties(bpy.types.PropertyGroup):
                 ('DEC',  'Decal',             'Decal surfaces (eg paths)',4),
             ],
             name='zmode',
-            description='Not well understood, has to do with rendering order',
+            description='Changes Z Calculations for different types of primitives',
             default='OPA'
         )
     rendermode_blender_flag_CVG_X_ALPHA = bpy.props.BoolProperty(
-            name='CVG_X_ALPHA',
-            description='CVG_X_ALPHA\n' '? see CloudModding wiki',
+            name='Multiply Coverage and Alpha',
+            description='CVG_X_ALPHA\n' 'Multiply coverage (amount primitive covers target pixel) with alpha and stores result as coverage',
             default=False
         )
     rendermode_blender_flag_ALPHA_CVG_SEL = bpy.props.BoolProperty(
-            name='ALPHA_CVG_SEL',
-            description='ALPHA_CVG_SEL\n' '? see CloudModding wiki',
+            name='Use Coverage for Alpha',
+            description='ALPHA_CVG_SEL\n' 'Use Coverage (amount primitive covers target pixel) as alpha instead of color combiner alpha',
             default=True # 421fixme does enabling this kill alpha?
         )
     rendermode_forceblending = bpy.props.BoolProperty(
             name='Force blending',
-            description='Not well understood, related to transparency and rendering order',
+            description='force_bl\n' 'Always uses blending on. Default blending is conditional and only applied during partial coverage. Forcing blending will disable division steps of the blender, so B input must be 1-A or there may be rendering issues. Always use this option when Z Buffering is off.',
             default=False
         )
     rendermode_blending_cycle0 = bpy.props.EnumProperty(
             items=[
-                ('FOG_PRIM',  'FOG_PRIM', 'Blend with fog color and alpha (G_RM_FOG_PRIM_A)',1),  # G_BL_CLR_FOG   G_BL_A_FOG     G_BL_CLR_IN    G_BL_1MA
-                ('FOG_SHADE', 'FOG_SHADE','Blend with fog color and shade alpha (shade from combiner cycles) (G_RM_FOG_SHADE_A)',2),  # G_BL_CLR_FOG   G_BL_A_SHADE   G_BL_CLR_IN    G_BL_1MA
+                ('FOG_PRIM',  'Fog RGBA', 'Blend with fog color and alpha (G_RM_FOG_PRIM_A)',1),  # G_BL_CLR_FOG   G_BL_A_FOG     G_BL_CLR_IN    G_BL_1MA
+                ('FOG_SHADE', 'Fog RGB, shade A','Blend with fog color and shade alpha (shade from combiner cycles) (G_RM_FOG_SHADE_A)',2),  # G_BL_CLR_FOG   G_BL_A_SHADE   G_BL_CLR_IN    G_BL_1MA
                 ('PASS',      'Pass',     'Let the input pixel color through unaltered (G_RM_PASS...)',3), # G_BL_CLR_IN    G_BL_0         G_BL_CLR_IN    G_BL_1
                 ('OPA',       'OPA',      'Blend with the buffer\nCycle settings mainly used with OPA',4), # G_BL_CLR_IN    G_BL_A_IN      G_BL_CLR_MEM   G_BL_A_MEM
                 ('XLU',       'XLU',      'Blend with the buffer\nCycle settings mainly used with XLU',5), # G_BL_CLR_IN    G_BL_A_IN      G_BL_CLR_MEM   G_BL_1MA
                 ('VC_SHADE',  'VC_SHADE', '', 6),
                 ('CUSTOM',    'Custom',   'Define a custom blending cycle',7),
             ],
-            name='Blend1',
+            name='First blending cycle',
             description='First cycle\nHow to blend the pixels being rendered with the frame buffer\nResponsible for at least transparency effects and fog',
             default='FOG_SHADE'
         )
@@ -789,7 +789,7 @@ class ObjexMaterialProperties(bpy.types.PropertyGroup):
                 ('XLU',    'XLU',    'Blend with the buffer\nCycle settings mainly used with XLU',2), # G_BL_CLR_IN    G_BL_A_IN      G_BL_CLR_MEM   G_BL_1MA
                 ('CUSTOM', 'Custom', 'Define a custom blending cycle',4),
             ],
-            name='Blend2',
+            name='Second blending cycle',
             description='Second cycle\nHow to blend the pixels being rendered with the frame buffer\nResponsible for at least transparency effects and fog',
             default='OPA'
         )
@@ -840,7 +840,7 @@ class ObjexMaterialProperties(bpy.types.PropertyGroup):
         )
     geometrymode_G_FOG = bpy.props.BoolProperty(
             name='G_FOG',
-            description='G_FOG\n' '? see CloudModding wiki, has to do with computing fog values\n' 'THIS DOES NOT DISABLE FOG, use the blending cycle settings for that purpose',
+            description='G_FOG\n' 'Turns on/off fog calculation. Fog variable gets stored into shade alpha.',
             default=True
         )
     geometrymode_G_ZBUFFER = bpy.props.BoolProperty(

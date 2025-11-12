@@ -750,6 +750,18 @@ class ObjexWriter():
                 # copy all collected files.
                 bpy_extras.io_utils.path_reference_copy(copy_set)
 
+            # create config.toml if it doesnt exists 
+            toml_path = os.path.dirname(self.filepath) + "/config.toml"
+            if not os.path.exists(toml_path):
+                content = """segment         = 6
+scale           = 100
+prefixes        = true
+"""
+                
+                # Write the file
+                with open(toml_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+
             progress.leave_substeps()
 
 

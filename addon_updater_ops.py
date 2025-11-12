@@ -1368,7 +1368,7 @@ def register(bl_info):
 	updater.subfolder_path = "io_export_objex2"
 
 	# Website for manual addon download, optional but recommended to set
-	updater.website = "https://github.com/rankaisija64/io_export_objex"
+	updater.website = "https://github.com/z64dev/io_export_objex_2.5"
 
 	# used to check/compare versions
 	updater.current_version = bl_info["version"]

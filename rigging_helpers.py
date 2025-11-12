@@ -226,6 +226,8 @@ def fold_unfold(scene, armature, do_folding, saved_pose, log=None):
     meshs = (obj for obj in scene.objects
         if obj.type == 'MESH' and obj.find_armature() == armature)
 
+    armature.data.pose_position = 'POSE'
+
     # set pose
     log.trace('restoreSavedPose')
     if do_folding:
@@ -314,6 +316,18 @@ def fold_unfold(scene, armature, do_folding, saved_pose, log=None):
         blender_version_compatibility.set_object_select(obj, True)
     blender_version_compatibility.set_active_object(bpy.context, active_object_user)
 
+    #cache
+    if not do_folding:
+        armature["OBJEX_restore_pose"] = True
+        armature["OBJEX_saved_pose"] = saved_pose.name
+        armature.data.pose_position = 'REST'
+    else:
+        armature["OBJEX_restore_pose"] = False
+        armature["OBJEX_saved_pose"] = ''
+        sc = bpy.context.scene
+        sc.frame_set(sc.frame_current)
+        #armature.data.pose_position = 'POSE'
+
 class AutofoldOperator():
 
     @classmethod
@@ -353,6 +367,7 @@ class OBJEX_OT_autofold_save_pose(bpy.types.Operator, AutofoldOperator):
     pose_name = bpy.props.StringProperty(
             name='Pose name',
             description='Name identifier for the pose position to save',
+            default='Pose'
         )
     # pose_name_current is used to ignore the "already used" pose name during redo in the redo panel
     pose_name_current = bpy.props.StringProperty()
@@ -393,16 +408,16 @@ class OBJEX_OT_autofold_save_pose(bpy.types.Operator, AutofoldOperator):
                 log.warn('The pose position matches rest position, it is useless')
                 return {'FINISHED'} # still allow the user to pick a name (and save)
 
-            var_pose = var_armature_pose(armature)
-            var_rest = var_armature_rest(armature)
+            #var_pose = var_armature_pose(armature)
+            #var_rest = var_armature_rest(armature)
             # UNFOLDED positions are usually more spread out
-            if var_pose.length > var_rest.length:
-                self.type = 'UNFOLDEDpose_foldedRest'
-            else:
-                self.type = 'foldedPose_UNFOLDEDrest'
-            log.debug('var_pose = {} .length = {}', var_pose, var_pose.length)
-            log.debug('var_rest = {} .length = {}', var_rest, var_rest.length)
-            log.debug('guessed type = {}', self.type)
+            #if var_pose.length > var_rest.length:
+            self.type = 'UNFOLDEDpose_foldedRest'
+            #else:
+            #    self.type = 'foldedPose_UNFOLDEDrest'
+            #log.debug('var_pose = {} .length = {}', var_pose, var_pose.length)
+            #log.debug('var_rest = {} .length = {}', var_rest, var_rest.length)
+            #log.debug('guessed type = {}', self.type)
             try:
                 # 421todo c'est très gadget (useless feature), but could be improved by
                 # taking into account modifier keys and other hotkey features
@@ -478,7 +493,7 @@ class OBJEX_OT_autofold_save_pose(bpy.types.Operator, AutofoldOperator):
                         and self.pose_name != self.pose_name_current # ignore currently saved pose during redo
                     ) or not self.pose_name
                 else 'NONE')
-        self.layout.prop(self, 'type')
+        #self.layout.prop(self, 'type')
 
 class OBJEX_OT_autofold_delete_pose(bpy.types.Operator, AutofoldOperator):
 
@@ -587,7 +602,22 @@ class OBJEX_OT_autofold_fold_unfold(bpy.types.Operator, AutofoldOperator):
             scene = context.scene
             armature = self.get_armature(context)
 
-            if self.pose_name:
+            if "OBJEX_restore_pose" not in armature:
+                armature["OBJEX_restore_pose"] = False;
+
+            if self.action == 'SWITCH':
+                if not armature["OBJEX_restore_pose"]:
+                    # currently folded
+                    do_folding = False # unfold
+                    self.pose_name = ''
+                else:
+                    # currently unfolded
+                    do_folding = True # fold
+                    self.pose_name = armature["OBJEX_saved_pose"]
+            else: # FOLD, UNFOLD
+                do_folding = (self.action == 'FOLD')
+
+            if self.pose_name and self.pose_name is not '':
                 # self.pose_name should be valid thanks to prop_search
                 saved_pose = scene.objex_bonus.saved_poses[self.pose_name]
             else:
@@ -602,27 +632,12 @@ class OBJEX_OT_autofold_fold_unfold(bpy.types.Operator, AutofoldOperator):
                 log.warn('Saved pose {} cannot be used with armature {}', saved_pose.name, armature.name)
                 return {'CANCELLED'}
 
-            if self.action == 'SWITCH':
-                if is_folded_guess(armature):
-                    # assume currently folded
-                    do_folding = False # unfold
-                else:
-                    # assume currently unfolded
-                    do_folding = True # fold
-            else: # FOLD, UNFOLD
-                do_folding = (self.action == 'FOLD')
+
             log.info('Folding' if do_folding else 'Unfolding')
+            log.info('self.pose_name {} saved_pose.name {}',self.pose_name, saved_pose.name)
 
             fold_unfold(scene, armature, do_folding, saved_pose=saved_pose, log=log)
-            # 421todo also fold/unfold actions?
-
-            if self.action == 'SWITCH' and do_folding != is_folded_guess(armature):
-                from_folded_state, to_folded_state = ('UNFOLDED', 'folded') if do_folding else ('folded', 'UNFOLDED')
-                log.warn('It was guessed that the armature was initially {from_folded_state} and had to be {to_folded_state},\n'
-                    'but now that the armature should be {to_folded_state} it is still guessed as {from_folded_state}.\n'
-                    'Results of this switch fold/unfold operation may be wrong,\n'
-                    'you may have to avoid using the Switch feature.'
-                        .format(from_folded_state=from_folded_state, to_folded_state=to_folded_state))
+            
 
             return {'FINISHED'}
         finally:
