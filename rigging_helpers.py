@@ -634,7 +634,6 @@ class OBJEX_OT_autofold_fold_unfold(bpy.types.Operator, AutofoldOperator):
 
 
             log.info('Folding' if do_folding else 'Unfolding')
-            log.info('self.pose_name {} saved_pose.name {}',self.pose_name, saved_pose.name)
 
             fold_unfold(scene, armature, do_folding, saved_pose=saved_pose, log=log)
             

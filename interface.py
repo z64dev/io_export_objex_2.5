@@ -2432,8 +2432,12 @@ def flipbook_to_image(flipbookimages, new_image_name="flipbook0.png"):
     """
 
     images = []
+    seen = set()
     for flipbookimg in flipbookimages:
-        images.append(flipbookimg.image)
+        img = flipbookimg.image
+        if img not in seen:
+            images.append(img)
+            seen.add(img)
 
     # Ensure all images have same width and 4 channels (RGBA)
     widths = [img.size[0] for img in images]
