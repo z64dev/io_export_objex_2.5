@@ -145,6 +145,45 @@ class OBJEX_OT_mesh_list_vertex_groups(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class OBJEX_OT_mesh_fix_multiassigned_vertices(bpy.types.Operator):
+
+    bl_idname = 'objex.mesh_fix_multiassigned_vertices'
+    bl_label = 'Fix multiassigned vertices by only keeping the group with the highest weight'
+
+    @classmethod
+    def poll(self, context):
+        object = context.object if hasattr(context, 'object') else None
+        return object and object.type == 'MESH'
+
+    def execute(self, context):
+        mesh = context.object.data
+        was_editmode = mesh.is_editmode
+        if was_editmode:
+            bpy.ops.object.mode_set(mode='OBJECT')
+        obj = context.object
+        vg_data = obj.vertex_groups
+        if not vg_data:
+            print("No vertex groups found!")
+            return {'CANCELLED'}
+        else:
+            # Iterate through mesh vertices
+            for v in obj.data.vertices:
+                # Find the vertex group with the highest weight
+                max_group = None
+                max_weight = 0.0
+
+                for g in v.groups:
+                    group_weight = vg_data[g.group].weight(v.index)
+                    if group_weight > max_weight:
+                        max_group = g.group
+                        max_weight = group_weight
+                
+                # Remove the vertex from all other vertex groups
+                for g in v.groups:
+                    if g.group != max_group:
+                        vg_data[g.group].remove([v.index])
+        return {'FINISHED'}
+
 # folding/unfolding
 
 def var_armature_rest(obj):
@@ -665,6 +704,7 @@ classes = (
     OBJEX_OT_mesh_find_multiassigned_vertices,
     OBJEX_OT_mesh_find_unassigned_vertices,
     OBJEX_OT_mesh_list_vertex_groups,
+    OBJEX_OT_mesh_fix_multiassigned_vertices,
     OBJEX_OT_autofold_save_pose,
     OBJEX_OT_autofold_delete_pose,
     OBJEX_OT_autofold_restore_pose,

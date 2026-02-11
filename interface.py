@@ -142,6 +142,7 @@ def menu_draw_mesh(layout:bpy.types.UILayout, context:bpy.types.Context):
         row = box.row()
         row.operator("objex.mesh_find_multiassigned_vertices", text="Find multiassigned vertices")
         row.operator("objex.mesh_find_unassigned_vertices", text="Find unassigned vertices")
+        box.operator("objex.mesh_fix_multiassigned_vertices", text="Fix multiassigned vertices by highest weight")
         box.operator("objex.mesh_list_vertex_groups", text="List groups of selected vertex")
     
         return
